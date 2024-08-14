@@ -246,10 +246,14 @@ tests/mpi-mvapich-psm2
 tests/mpi-mvapich-ib
 tests/ml-mpi-impi
 tests/ml-mpi-mvapich
+arm64
 base-images
+base-images-amd64
+base-images-arm64
 ml-images
 mpi-images
 ml-mpi-images
+/rockylinux9-cuda12
 rockylinux8-cuda11
 rockylinux8-mvapich2.3-ib
 rockylinux8-mvapich2.3-psm2
@@ -274,6 +278,7 @@ ubuntu20.04-cuda11-tf2.11-pt1.13
 ubuntu20.04-cuda11-tf2.11-pt1.13-mvapich2.3-ib
 ubuntu20.04-cuda11-tf2.11-pt1.13-mvapich2.3-psm2
 ubuntu20.04-cuda11-tf2.11-pt1.13-impi19.0.9-common
+/ubuntu22.04-cuda12
 ubuntu22.04-cuda11
 ubuntu22.04-mvapich2.3-ib
 ubuntu22.04-mvapich2.3-psm2
@@ -282,3 +287,5 @@ ubuntu22.04-cuda11-tf2.11-pt1.13
 ubuntu22.04-cuda11-tf2.11-pt1.13-mvapich2.3-ib
 ubuntu22.04-cuda11-tf2.11-pt1.13-mvapich2.3-psm2
 ubuntu22.04-cuda11-tf2.11-pt1.13-impi19.0.9-common
+/arm64-ubuntu22.04-cuda12
+/arm64-rockylinux9-cuda12

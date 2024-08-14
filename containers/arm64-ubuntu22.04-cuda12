@@ -1,5 +1,5 @@
-ARG CUDA=11.7.1
-FROM nvidia/cuda:${CUDA}-cudnn8-runtime-rockylinux8
+ARG CUDA=12.4.1
+FROM nvidia/cuda:${CUDA}-cudnn-runtime-ubuntu22.04
 ARG CUDA
 LABEL maintainer="Erik Ferlanti <eferlanti@tacc.utexas.edu>"
 
@@ -21,11 +21,15 @@ ENTRYPOINT [ "/entry.sh" ]
 ########################################
 # Add OS updates
 ########################################
-RUN yum upgrade -y \
-    && yum groupinstall -y "Development tools" \
-    && yum install -y \
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        bison \
+        build-essential \
+        ca-certificates \
+        curl \
         cuda-command-line-tools-$(cut -f1,2 -d- <<< ${CUDA//./-}) \
-        ncurses \
+        less \
+        lbzip2 \
         wget \
     && docker-clean
 
@@ -35,13 +39,13 @@ RUN yum upgrade -y \
 ENV CONDA_DIR=/opt/conda
 ENV PATH=${CONDA_DIR}/bin:${PATH}
 # Download and install miniforge
-RUN wget -q -P /tmp https://github.com/conda-forge/miniforge/releases/download/23.1.0-0/Miniforge3-23.1.0-0-Linux-x86_64.sh \
-    && bash /tmp/Miniforge3-23.1.0-0-Linux-x86_64.sh -b -p $CONDA_DIR \
-    && rm /tmp/Miniforge3-23.1.0-0-Linux-x86_64.sh \
+RUN wget -q -P /tmp https://github.com/conda-forge/miniforge/releases/download/24.3.0-0/Miniforge3-24.3.0-0-Linux-aarch64.sh \
+    && bash /tmp/Miniforge3-24.3.0-0-Linux-aarch64.sh -b -p $CONDA_DIR \
+    && rm /tmp/Miniforge3-24.3.0-0-Linux-aarch64.sh \
     && conda config --system --set auto_update_conda false \
     && conda config --system --set show_channel_urls true \
     && conda config --system --set default_threads 4 \
-    && conda install --yes --no-update-deps python=3.9 \
+    && conda install --yes --no-update-deps python=3.11 \
     && ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh \
     && docker-clean
 

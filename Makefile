@@ -3,10 +3,12 @@
 
 SHELL = bash
 
-ORG := eriksf
-CUDA := 11.7.1
+ORG := tacc
+CUDA := 12.2.2
+CUDA_ARM := 12.4.1
 PUSH ?= 0
 CACHE ?= 1
+DETECTED_OS := $(shell uname -s 2>/dev/null || echo Unknown)
 
 ifeq "$(CACHE)" "0"
     NOCACHE:=--no-cache
@@ -14,12 +16,13 @@ else
     NOCACHE:=
 endif
 
-BUILD = docker build --build-arg CUDA=$(CUDA) -t $(ORG)/tacc-base:$(@) -f $(word 1,$^) $(NOCACHE)
+BUILD = docker build -t $(ORG)/tacc-base:$(@) -f $(word 1,$^) $(NOCACHE)
 PUSHC = [ "$(PUSH)" -eq "1" ] && docker push $(ORG)/tacc-base:$@ || echo "not pushing $@"
 ####################################
 # CFLAGS
 ####################################
-FLAGS := -O2 -pipe -march=x86-64 -ftree-vectorize -mtune=core-avx2
+AMD64 := -O2 -pipe -march=x86-64 -ftree-vectorize -mtune=core-avx2
+#ARM64 :=
 
 ####################################
 # Sanity checks
@@ -32,21 +35,66 @@ docker:
 	fi
 
 ####################################
+# Multi-arch stuff
+####################################
+.SILENT: qemu-user-static arm64 stop_qemu
+.PHONY: stop_qemu
+qemu-user-static: | docker
+	ifeq ($(DETECTED_OS),Linux)
+		echo "Starting qemu-user-static"
+		docker run --rm --privileged multiarch/qemu-user-static --reset -p yes &> /dev/null
+		touch $@
+	else
+		echo "qemu-user-static not needed!"
+	endif
+stop_qemu:
+	if [ -e qemu-user-static ]; then \
+		docker run --rm --privileged multiarch/qemu-user-static --reset &> /dev/null \
+		&& rm qemu-user-static; \
+	fi
+	if [ -e arm64 ]; then rm arm64; fi
+arm64: | docker
+	if docker run --rm -it --platform linux/arm64 ubuntu:22.04 uname &> /dev/null; then \
+		touch $@; \
+	else \
+		$(MAKE) qemu-user-static && touch $@ || exit 1; \
+	fi
+
+####################################
 # Base Images
 ####################################
-BASE := $(shell echo {ubuntu18.04,ubuntu20.04,ubuntu22.04,rockylinux8}-cuda11)
+BASE_AMD64 := $(shell echo {ubuntu22.04,rockylinux9}-cuda12)
+BASE_ARM64 := $(shell echo arm64-{ubuntu22.04,rockylinux9}-cuda12)
 
 %: containers/% | docker
-	$(BUILD) --build-arg FLAGS="$(FLAGS)" ./containers &> $@.log
+	$(BUILD) --build-arg FLAGS="$(AMD64)" --build-arg CUDA="$(CUDA)" --platform linux/amd64 ./containers &> $@.log
 	$(PUSHC)
 	touch $@
 
-base-images: $(BASE)
+arm64-%: containers/arm64-% arm64 | docker
+	$(BUILD) --build-arg FLAGS="$(ARM64)" --build-arg CUDA="$(CUDA_ARM)" --platform linux/arm64 ./containers &> $@.log
+	$(PUSHC)
 	touch $@
 
-clean-base: | docker
-	for img in $(BASE); do docker rmi -f $(ORG)/tacc-base:$$img; rm -f $$img $$img.log; done
-	if [ -e base-images ]; then rm base-images; fi
+base-images: $(BASE_AMD64) $(BASE_ARM64)
+	touch $@
+
+base-images-amd64: $(BASE_AMD64)
+	touch $@
+
+base-images-arm64: $(BASE_ARM64)
+	touch $@
+
+.PHONY: clean-base clean-base-amd64 clean-base-arm64
+clean-base: | clean-base-amd64 clean-base-arm64
+
+clean-base-amd64: | docker
+	for img in $(BASE_AMD64); do docker rmi $(ORG)/tacc-base:$$img; rm -f $$img $$img.log; done
+	if [ -e base-images-amd64]; then rm base-images-amd64; fi
+
+clean-base-arm64: | docker
+	for img in $(BASE_ARM64); do docker rmi $(ORG)/tacc-base:$$img; rm -f $$img $$img.log; done
+	if [ -e base-images-arm64]; then rm base-images-arm64; fi
 
 ####################################
 # ML Images
